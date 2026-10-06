@@ -6,29 +6,10 @@ import {
   ReservationValidationError,
 } from '../services/reservation.service';
 import {
-  ICreateReservationRequest,
   IErrorResponse,
   IReservation,
   IUserReservationsParams,
 } from '../types/reservation';
-
-const isNonEmptyString = (value: unknown): value is string =>
-  typeof value === 'string' && value.trim().length > 0;
-
-const isCreateReservationRequest = (
-  body: unknown,
-): body is ICreateReservationRequest => {
-  if (typeof body !== 'object' || body === null) {
-    return false;
-  }
-  const candidate = body as Record<string, unknown>;
-  return (
-    isNonEmptyString(candidate.resourceId) &&
-    isNonEmptyString(candidate.userId) &&
-    isNonEmptyString(candidate.startTime) &&
-    isNonEmptyString(candidate.endTime)
-  );
-};
 
 const sendError = (res: Response, status: number, error: IErrorResponse): void => {
   res.status(status).json(error);
@@ -40,21 +21,9 @@ export const createReservation = async (
   next: NextFunction,
 ): Promise<void> => {
   const body: unknown = req.body;
-  if (!isCreateReservationRequest(body)) {
-    sendError(res, 400, {
-      code: 'VALIDATION_ERROR',
-      message: 'Body must include string resourceId, userId, startTime and endTime.',
-    });
-    return;
-  }
 
   try {
-    const reservation: IReservation = await createReservationService({
-      resourceId: body.resourceId,
-      userId: body.userId,
-      startTime: body.startTime,
-      endTime: body.endTime,
-    });
+    const reservation: IReservation = await createReservationService(body);
     res.status(201).json(reservation);
   } catch (err: unknown) {
     if (err instanceof ReservationConflictError) {

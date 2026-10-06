@@ -1,12 +1,10 @@
-import { randomUUID } from 'crypto';
+import { isObjectIdOrHexString } from 'mongoose';
+import { IReservationDocument, Reservation } from '../models/Reservation.model';
+import { Resource } from '../models/Resource.model';
 import {
   ICreateReservationRequest,
   IReservation,
 } from '../types/reservation';
-
-// TEMPORARY in-memory store: stands in for a Mongoose model until persistence
-// is added. Data is lost on restart and is not shared across processes.
-const reservations: Map<string, IReservation> = new Map<string, IReservation>();
 
 export class ReservationValidationError extends Error {
   public readonly code: string = 'VALIDATION_ERROR';
@@ -27,47 +25,95 @@ export class ReservationConflictError extends Error {
   }
 }
 
-const isActive = (reservation: IReservation): boolean =>
-  reservation.status !== 'CANCELLED';
+const toReservation = (doc: IReservationDocument): IReservation => ({
+  id: String(doc._id),
+  resourceId: doc.resourceId.toString(),
+  userId: doc.userId,
+  startTime: doc.startTime.toISOString(),
+  endTime: doc.endTime.toISOString(),
+  status: doc.status,
+});
 
-const overlaps = (a: IReservation, startMs: number, endMs: number): boolean =>
-  Date.parse(a.startTime) < endMs && startMs < Date.parse(a.endTime);
+const isNonEmptyString = (value: unknown): value is string =>
+  typeof value === 'string' && value.trim().length > 0;
+
+const isCreateReservationRequest = (
+  body: unknown,
+): body is ICreateReservationRequest => {
+  if (typeof body !== 'object' || body === null) {
+    return false;
+  }
+  const candidate = body as Record<string, unknown>;
+  return (
+    isNonEmptyString(candidate.resourceId) &&
+    isNonEmptyString(candidate.userId) &&
+    isNonEmptyString(candidate.startTime) &&
+    isNonEmptyString(candidate.endTime)
+  );
+};
 
 export const createReservation = async (
-  input: ICreateReservationRequest,
+  body: unknown,
 ): Promise<IReservation> => {
-  const startMs: number = Date.parse(input.startTime);
-  const endMs: number = Date.parse(input.endTime);
+  if (!isCreateReservationRequest(body)) {
+    throw new ReservationValidationError(
+      'Body must include string resourceId, userId, startTime and endTime.',
+    );
+  }
+  const input: ICreateReservationRequest = {
+    resourceId: body.resourceId,
+    userId: body.userId,
+    startTime: body.startTime,
+    endTime: body.endTime,
+  };
 
-  if (Number.isNaN(startMs) || Number.isNaN(endMs)) {
+  const startTime: Date = new Date(input.startTime);
+  const endTime: Date = new Date(input.endTime);
+
+  if (Number.isNaN(startTime.getTime()) || Number.isNaN(endTime.getTime())) {
     throw new ReservationValidationError('startTime and endTime must be ISO 8601 date-times.');
   }
-  if (endMs <= startMs) {
+  if (endTime <= startTime) {
     throw new ReservationValidationError('endTime must be after startTime.');
   }
-  for (const existing of reservations.values()) {
-    if (
-      existing.resourceId === input.resourceId &&
-      isActive(existing) &&
-      overlaps(existing, startMs, endMs)
-    ) {
-      throw new ReservationConflictError(
-        'RESERVATION_CONFLICT',
-        'Resource is already reserved for the requested time period.',
-      );
-    }
+  if (!isObjectIdOrHexString(input.resourceId)) {
+    throw new ReservationValidationError('resourceId must be a valid resource id.');
+  }
+  if ((await Resource.exists({ _id: input.resourceId })) === null) {
+    throw new ReservationValidationError('resourceId does not match an existing resource.');
   }
 
-  const reservation: IReservation = { id: randomUUID(), ...input, status: 'PENDING' };
-  reservations.set(reservation.id, reservation);
-  return reservation;
+  // Two active reservations overlap when each starts before the other ends.
+  const hasConflict: boolean =
+    (await Reservation.exists({
+      resourceId: input.resourceId,
+      status: { $ne: 'CANCELLED' },
+      startTime: { $lt: endTime },
+      endTime: { $gt: startTime },
+    })) !== null;
+  if (hasConflict) {
+    throw new ReservationConflictError(
+      'RESERVATION_CONFLICT',
+      'Resource is already reserved for the requested time period.',
+    );
+  }
+
+  const doc: IReservationDocument = await Reservation.create({
+    resourceId: input.resourceId,
+    userId: input.userId,
+    startTime,
+    endTime,
+    status: 'PENDING',
+  });
+  return toReservation(doc);
 };
 
 export const listActiveReservationsForUser = async (
   userId: string,
 ): Promise<IReservation[]> => {
-  return [...reservations.values()].filter(
-    (reservation: IReservation): boolean =>
-      reservation.userId === userId && isActive(reservation),
-  );
+  const docs: IReservationDocument[] = await Reservation.find({
+    userId,
+    status: { $ne: 'CANCELLED' },
+  });
+  return docs.map(toReservation);
 };

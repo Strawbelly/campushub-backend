@@ -8,6 +8,7 @@ export interface IResource {
   id: string;
   name: string;
   type: string;
+  location: string;
   isAvailable: boolean;
 }
 

@@ -93,6 +93,7 @@ components:
         - id
         - name
         - type
+        - location
         - isAvailable
       properties:
         id:
@@ -100,6 +101,12 @@ components:
         name:
           type: string
         type:
+          type: string
+          enum:
+            - ROOM
+            - EQUIPMENT
+            - LAB
+        location:
           type: string
         isAvailable:
           type: boolean

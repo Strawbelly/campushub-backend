@@ -37,9 +37,15 @@ export type ICreateReservationRequest = Pick<
 /** GET /resources query parameters. */
 export interface IListResourcesQuery {
   type?: string;
+  isAvailable?: string;
 }
 
 /** GET /reservations/user/{userId} path parameters. */
 export interface IUserReservationsParams {
   userId: string;
+}
+
+/** PATCH /reservations/{id}/confirm and /reservations/{id}/cancel path parameters. */
+export interface IReservationIdParams {
+  id: string;
 }

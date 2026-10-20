@@ -4,7 +4,17 @@ import { Resource } from '../models/Resource.model';
 import {
   ICreateReservationRequest,
   IReservation,
+  ReservationStatus,
 } from '../types/reservation';
+
+// Reservations in these states hold their time slot; CANCELLED ones do not.
+const ACTIVE_STATUSES: readonly ReservationStatus[] = ['PENDING', 'CONFIRMED'];
+
+// Statuses a reservation may move out of to reach each target status.
+const ALLOWED_PREVIOUS_STATUSES: Record<'CONFIRMED' | 'CANCELLED', readonly ReservationStatus[]> = {
+  CONFIRMED: ['PENDING'],
+  CANCELLED: ['PENDING', 'CONFIRMED'],
+};
 
 export class ReservationValidationError extends Error {
   public readonly code: string = 'VALIDATION_ERROR';
@@ -22,6 +32,15 @@ export class ReservationConflictError extends Error {
     super(message);
     this.name = 'ReservationConflictError';
     this.code = code;
+  }
+}
+
+export class ReservationNotFoundError extends Error {
+  public readonly code: string = 'RESERVATION_NOT_FOUND';
+
+  constructor(message: string) {
+    super(message);
+    this.name = 'ReservationNotFoundError';
   }
 }
 
@@ -87,7 +106,7 @@ export const createReservation = async (
   const hasConflict: boolean =
     (await Reservation.exists({
       resourceId: input.resourceId,
-      status: { $ne: 'CANCELLED' },
+      status: { $in: ACTIVE_STATUSES },
       startTime: { $lt: endTime },
       endTime: { $gt: startTime },
     })) !== null;
@@ -108,12 +127,45 @@ export const createReservation = async (
   return toReservation(doc);
 };
 
-export const listActiveReservationsForUser = async (
+export const listReservationsForUser = async (
   userId: string,
 ): Promise<IReservation[]> => {
-  const docs: IReservationDocument[] = await Reservation.find({
-    userId,
-    status: { $ne: 'CANCELLED' },
-  });
+  const docs: IReservationDocument[] = await Reservation.find({ userId });
   return docs.map(toReservation);
 };
+
+// The status precondition is part of the update filter, so two concurrent
+// requests cannot both transition the same reservation.
+const transitionStatus = async (
+  id: string,
+  target: 'CONFIRMED' | 'CANCELLED',
+): Promise<IReservation> => {
+  if (!isObjectIdOrHexString(id)) {
+    throw new ReservationValidationError('id must be a valid reservation id.');
+  }
+
+  const allowed: readonly ReservationStatus[] = ALLOWED_PREVIOUS_STATUSES[target];
+  const updated: IReservationDocument | null = await Reservation.findOneAndUpdate(
+    { _id: id, status: { $in: allowed } },
+    { $set: { status: target } },
+    { returnDocument: 'after' },
+  );
+  if (updated !== null) {
+    return toReservation(updated);
+  }
+
+  const existing: IReservationDocument | null = await Reservation.findById(id);
+  if (existing === null) {
+    throw new ReservationNotFoundError('Reservation not found.');
+  }
+  throw new ReservationConflictError(
+    'INVALID_STATUS_TRANSITION',
+    `Cannot change reservation status from ${existing.status} to ${target}.`,
+  );
+};
+
+export const confirmReservation = async (id: string): Promise<IReservation> =>
+  transitionStatus(id, 'CONFIRMED');
+
+export const cancelReservation = async (id: string): Promise<IReservation> =>
+  transitionStatus(id, 'CANCELLED');

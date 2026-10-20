@@ -13,7 +13,7 @@ paths:
   /resources:
     get:
       summary: List all resources
-      description: Returns all campus resources, optionally filtered by resource type.
+      description: Returns all campus resources, optionally filtered by resource type and availability.
       parameters:
         - name: type
           in: query
@@ -21,6 +21,16 @@ paths:
           description: Filter resources by resource type.
           schema:
             type: string
+            enum:
+              - ROOM
+              - EQUIPMENT
+              - LAB
+        - name: isAvailable
+          in: query
+          required: false
+          description: Filter resources by availability.
+          schema:
+            type: boolean
       responses:
         '200':
           description: A list of campus resources.
@@ -31,7 +41,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/Resource'
         '400':
-          description: The type query parameter was provided but is empty.
+          description: The type or isAvailable query parameter has an invalid value.
           content:
             application/json:
               schema:
@@ -65,8 +75,8 @@ paths:
 
   /reservations/user/{userId}:
     get:
-      summary: Get active reservations for a user
-      description: Returns all active reservations for the specified student.
+      summary: Get all reservations for a user
+      description: Returns all reservations for the specified student, in any status.
       parameters:
         - name: userId
           in: path
@@ -76,13 +86,87 @@ paths:
             type: string
       responses:
         '200':
-          description: A list of active reservations.
+          description: A list of the student's reservations.
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/Reservation'
+
+  /reservations/{id}/confirm:
+    patch:
+      summary: Confirm a reservation
+      description: Transitions the reservation status from PENDING to CONFIRMED.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the reservation.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The updated reservation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reservation'
+        '400':
+          description: The id is not a valid reservation id.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No reservation exists with the given id.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: The reservation's current status does not allow this transition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /reservations/{id}/cancel:
+    patch:
+      summary: Cancel a reservation
+      description: Transitions the reservation status from PENDING or CONFIRMED to CANCELLED. A cancelled reservation no longer blocks its time slot.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the reservation.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The updated reservation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reservation'
+        '400':
+          description: The id is not a valid reservation id.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No reservation exists with the given id.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: The reservation's current status does not allow this transition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
 components:
   schemas:

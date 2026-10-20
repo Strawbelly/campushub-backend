@@ -1,5 +1,10 @@
-import { IResourceDocument, Resource } from '../models/Resource.model';
-import { IResource } from '../types/reservation';
+import {
+  IResourceDocument,
+  Resource,
+  RESOURCE_TYPES,
+  ResourceType,
+} from '../models/Resource.model';
+import { IListResourcesQuery, IResource } from '../types/reservation';
 
 export class ResourceValidationError extends Error {
   public readonly code: string = 'VALIDATION_ERROR';
@@ -18,15 +23,35 @@ const toResource = (doc: IResourceDocument): IResource => ({
   isAvailable: doc.isAvailable,
 });
 
+interface IResourceFilter {
+  type?: ResourceType;
+  isAvailable?: boolean;
+}
+
+const isResourceType = (value: string): value is ResourceType =>
+  (RESOURCE_TYPES as readonly string[]).includes(value);
+
 export const listResources = async (
-  type: string | undefined,
+  query: IListResourcesQuery,
 ): Promise<IResource[]> => {
-  if (type === '') {
-    throw new ResourceValidationError('type must be a non-empty string when provided.');
+  const filter: IResourceFilter = {};
+
+  if (query.type !== undefined) {
+    if (!isResourceType(query.type)) {
+      throw new ResourceValidationError(
+        `type must be one of ${RESOURCE_TYPES.join(', ')}.`,
+      );
+    }
+    filter.type = query.type;
   }
-  const docs: IResourceDocument[] =
-    type === undefined
-      ? await Resource.find()
-      : await Resource.find().where('type').equals(type);
+
+  if (query.isAvailable !== undefined) {
+    if (query.isAvailable !== 'true' && query.isAvailable !== 'false') {
+      throw new ResourceValidationError('isAvailable must be true or false.');
+    }
+    filter.isAvailable = query.isAvailable === 'true';
+  }
+
+  const docs: IResourceDocument[] = await Resource.find(filter);
   return docs.map(toResource);
 };

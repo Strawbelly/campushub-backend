@@ -1,8 +1,8 @@
 # CampusHub Backend
 
 REST API for reserving campus resources (rooms, equipment, labs) in time slots. It
-lists resources, creates reservations while rejecting overlapping bookings, and
-returns a user's active reservations. The API contract is in `docs/openapi.yaml`.
+lists resources, creates reservations while rejecting overlapping bookings,
+returns all of a user's reservations, and confirms or cancels reservations. The API contract is in `docs/openapi.yaml`.
 
 ## Tech Stack
 
@@ -57,9 +57,11 @@ Base path: `/api/v1`
 
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `/resources?type=` | List resources, optionally filtered by `type` |
+| GET | `/resources?type=&isAvailable=` | List resources, optionally filtered by `type` (`ROOM`, `EQUIPMENT`, `LAB`) and `isAvailable` (`true`/`false`) |
 | POST | `/reservations` | Create a reservation (`409` if the time slot overlaps) |
-| GET | `/reservations/user/{userId}` | List a user's active (non-cancelled) reservations |
+| GET | `/reservations/user/{userId}` | List all of a user's reservations, including cancelled ones |
+| PATCH | `/reservations/{id}/confirm` | `PENDING` → `CONFIRMED` (`409` from any other status) |
+| PATCH | `/reservations/{id}/cancel` | `PENDING`/`CONFIRMED` → `CANCELLED`, freeing the time slot (`409` if already cancelled) |
 
 ## Testing
 
@@ -78,8 +80,8 @@ Use the inserted document's `_id` as `<RESOURCE_ID>` below.
 # List resources (200)
 curl -i http://localhost:3000/api/v1/resources
 
-# Filter by type (200)
-curl -i "http://localhost:3000/api/v1/resources?type=ROOM"
+# Filter by type and availability (200)
+curl -i "http://localhost:3000/api/v1/resources?type=ROOM&isAvailable=true"
 
 # Empty type (400 VALIDATION_ERROR)
 curl -i "http://localhost:3000/api/v1/resources?type="
@@ -89,8 +91,12 @@ curl -i -X POST http://localhost:3000/api/v1/reservations \
   -H "Content-Type: application/json" \
   -d '{"resourceId":"<RESOURCE_ID>","userId":"user-456","startTime":"2026-10-01T10:00:00Z","endTime":"2026-10-01T11:00:00Z"}'
 
-# A user's active reservations (200)
+# All of a user's reservations (200)
 curl -i http://localhost:3000/api/v1/reservations/user/user-456
+
+# Confirm, then cancel, using the reservation's id (200); cancelling frees the slot
+curl -i -X PATCH http://localhost:3000/api/v1/reservations/<RESERVATION_ID>/confirm
+curl -i -X PATCH http://localhost:3000/api/v1/reservations/<RESERVATION_ID>/cancel
 ```
 
 ## Troubleshooting

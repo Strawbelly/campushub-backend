@@ -202,3 +202,60 @@ Why:  <rule(s) from CLAUDE.md that shaped the implementation>
   unrelated code alongside a requested change.
 - If a request cannot be satisfied within these rules, say so and propose the
   compliant alternative instead of bending a rule.
+
+---
+
+## 6. Frontend Guidelines (`client/`)
+
+These rules apply to the React + TypeScript application under `client/`. The
+TypeScript, typing, and async-safety standards in Section 3 apply here as well.
+
+### Component Architecture
+
+- **Functional components only.** No class components.
+- **Every component declares an explicit props interface.** Name it `<Component>Props`
+  and type the component's parameter with it; give components an explicit return type.
+
+```tsx
+// client/src/components/EventCard.tsx
+interface EventCardProps {
+  title: string;
+  startsAt: Date;
+  capacity: number;
+}
+
+export function EventCard({ title, startsAt, capacity }: EventCardProps): JSX.Element {
+  return (
+    <article>
+      <h3>{title}</h3>
+      <p>{startsAt.toLocaleString()} · {capacity} spots</p>
+    </article>
+  );
+}
+```
+
+### State Management
+
+- Use standard React hooks (`useState`, `useEffect`) or custom hooks (`useXxx`) for
+  state and side effects.
+- **No inline API calls inside JSX.** Data fetching belongs in a `useEffect` or a
+  custom hook, never in event-handler attributes or render expressions directly.
+- Extract reusable fetching/state logic into custom hooks so components stay focused
+  on rendering.
+
+### Styling
+
+- Keep styling modular and consistent: use CSS Modules (`Component.module.css`) or
+  standard utility classes.
+- Avoid ad-hoc inline `style={{ ... }}` objects for anything beyond one-off dynamic
+  values.
+
+---
+
+## Scope Clarification
+
+- Sections 1–5 retain their existing requirements for the backend.
+- Section 6 contains the frontend guidelines for the React application under `client/`.
+- Backend-specific restrictions on dependencies, source directories, and file
+  extensions do not apply to `client/`. The frontend must still follow Section 6 and
+  all applicable shared TypeScript and code-quality rules.

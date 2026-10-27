@@ -1,0 +1,111 @@
+.section {
+  text-align: left;
+  padding: 24px;
+}
+
+.heading {
+  margin: 0 0 16px;
+  color: var(--text-h);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.filter {
+  font: inherit;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.filterActive {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.status {
+  margin: 0 0 16px;
+}
+
+.error {
+  margin: 0 0 16px;
+  color: #d92d20;
+}
+
+.grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.cardSelected {
+  border-color: var(--accent-border);
+  box-shadow: var(--shadow);
+}
+
+.type {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+}
+
+.name {
+  margin: 0;
+  color: var(--text-h);
+}
+
+.location {
+  margin: 0;
+}
+
+.available,
+.unavailable {
+  margin: 0 0 8px;
+  font-size: 0.875rem;
+}
+
+.available {
+  color: #12b76a;
+}
+
+.unavailable {
+  color: #d92d20;
+}
+
+/* Pushes the button to the bottom so buttons line up across a row. */
+.book {
+  font: inherit;
+  margin-top: auto;
+  padding: 6px 12px;
+  border: 1px solid var(--accent-border);
+  border-radius: 6px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.book:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

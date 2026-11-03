@@ -1,43 +1,27 @@
 // Typed client for the CampusHub Reservation API, following docs/openapi.yaml.
 // Date-time fields are ISO 8601 strings as they appear in JSON, not Date objects.
+// Contract types come from the shared declaration file src/types/reservation.ts
+// and are re-exported here under the client's names.
+
+import { RESERVATION_STATUSES, RESOURCE_TYPES } from '../../../src/types/reservation';
+import type {
+  ICreateReservationRequest,
+  IErrorResponse,
+  IReservation,
+  IResource,
+  ReservationStatus,
+  ResourceType,
+} from '../../../src/types/reservation';
+
+export { RESERVATION_STATUSES, RESOURCE_TYPES };
+export type { ReservationStatus, ResourceType };
+export type Resource = IResource;
+export type Reservation = IReservation;
+export type ErrorResponse = IErrorResponse;
+/** POST /reservations request body — `id` and `status` are assigned by the server. */
+export type CreateReservationDTO = ICreateReservationRequest;
 
 const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
-
-export const RESOURCE_TYPES = ['ROOM', 'EQUIPMENT', 'LAB'] as const;
-export type ResourceType = (typeof RESOURCE_TYPES)[number];
-
-export const RESERVATION_STATUSES = ['PENDING', 'CONFIRMED', 'CANCELLED'] as const;
-export type ReservationStatus = (typeof RESERVATION_STATUSES)[number];
-
-export interface Resource {
-  id: string;
-  name: string;
-  type: ResourceType;
-  location: string;
-  isAvailable: boolean;
-}
-
-export interface Reservation {
-  id: string;
-  resourceId: string;
-  userId: string;
-  /** ISO 8601 date-time */
-  startTime: string;
-  /** ISO 8601 date-time */
-  endTime: string;
-  status: ReservationStatus;
-}
-
-export interface ErrorResponse {
-  code: string;
-  message: string;
-}
-
-/** POST /reservations request body — `id` and `status` are assigned by the server. */
-export type CreateReservationDTO = Pick<
-  Reservation,
-  'resourceId' | 'userId' | 'startTime' | 'endTime'
->;
 
 /** Thrown for any non-2xx response; carries the spec's ErrorResponse fields. */
 export class ApiError extends Error {

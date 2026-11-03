@@ -1,10 +1,10 @@
+import { IResourceDocument, Resource } from '../models/Resource.model';
 import {
-  IResourceDocument,
-  Resource,
+  IListResourcesQuery,
+  IResource,
   RESOURCE_TYPES,
   ResourceType,
-} from '../models/Resource.model';
-import { IListResourcesQuery, IResource } from '../types/reservation';
+} from '../types/reservation';
 
 export class ResourceValidationError extends Error {
   public readonly code: string = 'VALIDATION_ERROR';

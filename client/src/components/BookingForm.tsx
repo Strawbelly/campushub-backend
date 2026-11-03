@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { FormEvent, JSX } from 'react';
-import { ApiError, createReservation } from '../api/campushubApi';
-import type { CreateReservationDTO, Reservation, Resource } from '../api/campushubApi';
+import type { Reservation, Resource } from '../api/campushubApi';
+import { useBooking } from '../hooks/useReservations';
 import styles from './BookingForm.module.css';
 
 interface BookingFormProps {
@@ -15,21 +15,6 @@ interface BookingInput {
   startTime: string;
   endTime: string;
 }
-
-interface UseBookingState {
-  submitting: boolean;
-  error: string | null;
-  success: string | null;
-  submit: (payload: CreateReservationDTO, onSuccess: () => void) => void;
-  reportError: (message: string) => void;
-}
-
-const toMessage = (err: unknown): string => {
-  if (err instanceof ApiError && err.status === 409) {
-    return 'That time slot is already reserved. Please choose another time.';
-  }
-  return err instanceof Error ? err.message : 'Something went wrong.';
-};
 
 // Returns an error message for invalid input, or null when it can be sent.
 // `datetime-local` values have no timezone, so they are read as local time.
@@ -49,37 +34,6 @@ const validateBooking = (input: BookingInput, now: Date): string | null => {
     return 'The end time must be after the start time.';
   }
   return null;
-};
-
-const useBooking = (onBooked?: (reservation: Reservation) => void): UseBookingState => {
-  const [submitting, setSubmitting] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-
-  const submit = (payload: CreateReservationDTO, onSuccess: () => void): void => {
-    setSubmitting(true);
-    setError(null);
-    setSuccess(null);
-    createReservation(payload)
-      .then((reservation: Reservation): void => {
-        setSuccess(`Booking request submitted (status: ${reservation.status}).`);
-        onSuccess();
-        onBooked?.(reservation);
-      })
-      .catch((err: unknown): void => {
-        setError(toMessage(err));
-      })
-      .finally((): void => {
-        setSubmitting(false);
-      });
-  };
-
-  const reportError = (message: string): void => {
-    setSuccess(null);
-    setError(message);
-  };
-
-  return { submitting, error, success, submit, reportError };
 };
 
 export function BookingForm({ resource, userId, onBooked }: BookingFormProps): JSX.Element {

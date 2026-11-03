@@ -1,7 +1,5 @@
 import { Schema, model, Document, Model } from 'mongoose';
-
-export const RESOURCE_TYPES = ['ROOM', 'EQUIPMENT', 'LAB'] as const;
-export type ResourceType = (typeof RESOURCE_TYPES)[number];
+import { RESOURCE_TYPES, ResourceType } from '../types/reservation';
 
 // Persistence shape. Named *Document to avoid clashing with the wire-format
 // IResource in src/types/reservation.ts.

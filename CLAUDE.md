@@ -1,12 +1,20 @@
-# CampusHub Backend — Project Context & Coding Rules
+# CampusHub — Project Rules
 
-This file is the master context for this repository. Every change made in this repo
-must comply with the rules below. When a request conflicts with these rules, stop and
-say so instead of silently working around them.
+Master context for this repository. Every change must comply with the rules that apply
+to its area:
+
+- **Backend only** (`src/`): §1 Tech Stack, §2 Architecture.
+- **Shared** (backend and `client/`): §3 Coding Standards (items marked *backend* excepted
+  for `client/`), §4 Git, §5 Working Agreement.
+- **Frontend only** (`client/`): §6. Backend restrictions on dependencies, source
+  directories, and file extensions do not apply to `client/`.
+
+If a request conflicts with these rules, stop and say so (see §5) — never silently work
+around them.
 
 ---
 
-## 1. Tech Stack & Authorized Libraries
+## 1. Tech Stack & Authorized Libraries (backend)
 
 **Authorized runtime dependencies — nothing else without explicit approval:**
 
@@ -18,35 +26,44 @@ say so instead of silently working around them.
 
 **Authorized dev dependencies:** `@types/node`, `@types/express`, `ts-node`, `typescript`.
 
-### Hard rules
-
 - **TypeScript only.** No `.js` or `.jsx` source files may be created or committed.
-  All source lives under `src/` with the `.ts` extension. Compiled output (`dist/`)
-  is build artifact only and is never edited by hand.
+  All source lives under `src/` with the `.ts` extension. `dist/` is build output only
+  and is never edited by hand.
 - **No unauthorized libraries.** Do not add, import, or `npm install` any package not
-  listed above. This includes "small helper" packages (lodash, moment, axios, dayjs,
-  uuid, bcrypt, jsonwebtoken, dotenv, cors, helmet, etc.). If a task genuinely needs
-  a new dependency, **stop and ask first** — state which package, why, and what the
-  alternative would be using only authorized packages.
+  listed above — including "small helper" packages (lodash, moment, axios, dayjs, uuid,
+  bcrypt, jsonwebtoken, dotenv, cors, helmet, etc.). If a task genuinely needs one,
+  **stop and ask first**: state which package, why, and the alternative using only
+  authorized packages.
 - **No package swaps.** Do not replace Express with Fastify/Koa, or Mongoose with the
   raw MongoDB driver, Prisma, or any ORM.
-- Prefer Node's built-in modules (`crypto`, `url`, `fs/promises`) over new dependencies.
+- Prefer Node built-ins (`crypto`, `url`, `fs/promises`) over new dependencies.
 
 ---
 
-## 2. Architectural Boundaries
+## 2. Architectural Boundaries (backend)
 
-Strict separation of concerns. Each layer may only call the layer directly beneath it.
+Strict separation of concerns. Each layer calls only the layer directly beneath it
+(exception: a service may also call other services).
 
 ```
-Request → Routes → Controllers → Services → Models → MongoDB
+Request → Routes (+ middleware) → Controllers → Services → Models → MongoDB
 ```
 
-### `src/routes/` — Routing only
-
-- Route path definitions and middleware mapping **only**.
-- Each route handler must delegate to a controller method. No inline handler logic.
-- **Forbidden:** business logic, validation logic, database access, response shaping.
+- **`src/routes/`** — path definitions and middleware mapping only; every handler
+  delegates to a controller method. Forbidden: business logic, validation, database
+  access, response shaping.
+- **`src/middleware/`** — Express middleware mounted by routes or the app (e.g. auth,
+  the central error handler). The only place besides controllers that may use `req`/`res`.
+- **`src/controllers/`** — parse and validate the request (`req.body`, `req.params`,
+  `req.query`), call exactly one service function, choose and send the success status
+  and response body. Forbidden: database queries (`.find()`, `.save()`, `.aggregate()`,
+  any query builder) and business rules (pricing, permissions logic, state transitions).
+- **`src/services/`** — all domain rules, orchestration, and data access through models.
+  Framework-agnostic: never touch `req`, `res`, `next`, or HTTP status codes. Throw
+  typed domain errors.
+- **`src/models/`** — Mongoose schemas, their TypeScript interfaces, and model exports.
+  Schema-local validators, indexes, and virtuals allowed. Forbidden: business logic,
+  cross-collection orchestration, HTTP concerns.
 
 ```ts
 // src/routes/event.routes.ts
@@ -59,53 +76,30 @@ router.post('/events', requireAuth, createEvent);
 export default router;
 ```
 
-### `src/controllers/` — Request/response handling only
-
-- Parse and validate the incoming request (`req.body`, `req.params`, `req.query`).
-- Call exactly one service function to do the work.
-- Choose and send the HTTP status code and response body.
-- **Forbidden:** any direct database query. A controller must never import a Mongoose
-  model or call `.find()`, `.save()`, `.aggregate()`, or any query builder.
-- **Forbidden:** business rules (pricing, permissions logic, state transitions).
-
-### `src/services/` — Pure business logic
-
-- All domain rules, orchestration, and data access through models live here.
-- Services are framework-agnostic: **never import `express`**, and never touch
-  `req`, `res`, `next`, or HTTP status codes.
-- Services throw typed domain errors; controllers translate them into status codes.
-- A service may call other services and may call models.
-
-### `src/models/` — Schemas and interfaces only
-
-- Mongoose schemas, their TypeScript interfaces, and model exports.
-- Schema-local validators, indexes, and virtuals are allowed.
-- **Forbidden:** business logic, cross-collection orchestration, HTTP concerns.
-
 ### Layer violation checklist (verify before finishing any change)
 
-- [ ] No model import inside `src/controllers/`.
+- [ ] No model import inside `src/controllers/` — only `import type` of model
+      interfaces is allowed.
 - [ ] No `express` import inside `src/services/` or `src/models/`.
 - [ ] No `res.` / `req.` usage outside `src/controllers/` and `src/middleware/`.
 - [ ] No logic inside `src/routes/` beyond path + middleware + controller reference.
 
 ---
 
-## 3. Coding Standards & Safety
+## 3. Coding Standards & Safety (shared)
 
 ### Typing
 
-- **`any` is banned.** This includes `any[]`, `Promise<any>`, `as any`, and implicit
-  `any` from untyped parameters. Use a concrete interface; use `unknown` plus a
-  narrowing type guard when the shape is genuinely not known.
+- **`any` is banned** — including `any[]`, `Promise<any>`, `as any`, `catch (e: any)`,
+  and implicit `any` from untyped parameters. Use a concrete interface, or `unknown`
+  plus a narrowing type guard when the shape is genuinely not known.
 - **Every function has an explicit signature** — all parameters typed and an explicit
-  return type, including `Promise<T>` for async functions. No relying on inference
-  for exported functions.
-- **Every DB schema has a matching interface.** Declare the interface, then build the
-  schema as `new Schema<IThing>(...)` so the two stay in sync.
-- `tsconfig.json` runs in `strict` mode. Do not weaken compiler options
-  (`strict`, `noImplicitAny`, `strictNullChecks`) to make code compile.
-- No `@ts-ignore` / `@ts-expect-error` to silence a type error — fix the type.
+  return type (`Promise<T>` for async). Never rely on inference.
+- *Backend:* **every DB schema has a matching interface**, built as
+  `new Schema<IThing>(...)` so the two stay in sync.
+- `tsconfig.json` runs in `strict` mode. Do not weaken compiler options (`strict`,
+  `noImplicitAny`, `strictNullChecks`) to make code compile.
+- No `@ts-ignore` / `@ts-expect-error` — fix the type.
 
 ```ts
 // src/models/event.model.ts
@@ -130,20 +124,29 @@ export const Event = model<IEvent>('Event', eventSchema);
 
 ### Async error handling
 
-- **No unhandled promises.** Every promise is `await`ed, returned, or explicitly
-  handled with `.catch()`. No floating async calls.
-- Every `await` in a controller sits inside `try/catch`, or the handler is wrapped in
-  a shared `asyncHandler` utility that forwards rejections to `next(err)`.
-- Never use `catch {}` to swallow an error silently.
-- Catch blocks type the error as `unknown` and narrow it before use — never `catch (e: any)`.
-- All errors end at a single Express error-handling middleware that owns the final
-  status code and response shape.
+- **No unhandled promises.** Every promise is `await`ed, returned, or handled with
+  `.catch()`. No floating async calls.
+- Never swallow errors with `catch {}`. Catch blocks type the error as `unknown` and
+  narrow it before use.
+- *Backend error flow:* services throw typed domain errors → controllers forward them
+  with `next(err)` (every controller `await` sits in `try/catch`, or the handler is
+  wrapped in a shared `asyncHandler`) → a single centralized error-handling middleware
+  maps errors to HTTP status codes and owns the error response shape.
 
 ```ts
 // src/controllers/event.controller.ts
 import { Request, Response, NextFunction } from 'express';
-import { createEventForHost } from '../services/event.service';
-import { IEvent } from '../models/event.model';
+import { createEventForHost, IEventInput } from '../services/event.service';
+import { ValidationError } from '../errors';
+import type { IEvent } from '../models/event.model';
+
+const isEventInput = (body: unknown): body is IEventInput => {
+  if (typeof body !== 'object' || body === null) return false;
+  const b = body as Record<string, unknown>;
+  return typeof b.title === 'string'
+    && typeof b.startsAt === 'string'
+    && typeof b.capacity === 'number';
+};
 
 export const createEvent = async (
   req: Request,
@@ -151,7 +154,11 @@ export const createEvent = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const event: IEvent = await createEventForHost(req.body);
+    const body: unknown = req.body;
+    if (!isEventInput(body)) {
+      throw new ValidationError('Invalid event payload');
+    }
+    const event: IEvent = await createEventForHost(body);
     res.status(201).json(event);
   } catch (err: unknown) {
     next(err);
@@ -164,22 +171,20 @@ export const createEvent = async (
 - `const` by default; `let` only when reassigned; `var` is forbidden.
 - Named exports for functions; keep files focused on one responsibility.
 - No `console.log` in committed code paths — use the project logger or nothing.
-- No secrets, connection strings, or API keys in source. Read from `process.env`,
-  validated once at startup into a typed config object.
+- *Backend:* no secrets, connection strings, or API keys in source. Read from
+  `process.env`, validated once at startup into a typed config object.
 
 ---
 
-## 4. Git & Commit Formatting
+## 4. Git & Commit Formatting (shared)
 
-When reporting completed work (commit messages, PR descriptions, or a diff summary
-in chat), keep it **concise** and always cover two things:
+When reporting completed work (commit messages, PR descriptions, or a diff summary in
+chat), keep it **concise** and always cover:
 
-1. **What was built** — the change in one or two sentences, plus the files/layers touched.
+1. **What was built** — the change in one or two sentences, plus files/layers touched.
 2. **Why the context rules were applied** — which CLAUDE.md rules shaped the design
    (e.g. "query moved into the service layer because controllers may not touch
    Mongoose"; "introduced `IEventInput` instead of `any` for the request body").
-
-Format:
 
 ```
 <type>(<scope>): <short imperative summary>
@@ -189,32 +194,32 @@ Why:  <rule(s) from CLAUDE.md that shaped the implementation>
 ```
 
 - Types: `feat`, `fix`, `refactor`, `chore`, `test`, `docs`.
-- Keep the summary line under 72 characters.
+- Summary line under 72 characters.
 - One logical change per commit; do not mix refactors with features.
 - Do not commit `node_modules/`, `dist/`, `.env`, or editor files.
 - Do not commit or push unless explicitly asked.
 
 ---
 
-## 5. Working Agreement
+## 5. Working Agreement (shared)
 
 - Do exactly what is asked — do not scaffold extra files, add packages, or "improve"
   unrelated code alongside a requested change.
-- If a request cannot be satisfied within these rules, say so and propose the
+- If a request cannot be satisfied within these rules, stop, say so, and propose the
   compliant alternative instead of bending a rule.
 
 ---
 
 ## 6. Frontend Guidelines (`client/`)
 
-These rules apply to the React + TypeScript application under `client/`. The
-TypeScript, typing, and async-safety standards in Section 3 apply here as well.
+Applies to the React + TypeScript app under `client/`, together with the shared rules
+in §3–§5.
 
 ### Component Architecture
 
 - **Functional components only.** No class components.
-- **Every component declares an explicit props interface.** Name it `<Component>Props`
-  and type the component's parameter with it; give components an explicit return type.
+- **Every component declares an explicit props interface** named `<Component>Props`,
+  types its parameter with it, and has an explicit return type.
 
 ```tsx
 // client/src/components/EventCard.tsx
@@ -238,24 +243,13 @@ export function EventCard({ title, startsAt, capacity }: EventCardProps): JSX.El
 
 - Use standard React hooks (`useState`, `useEffect`) or custom hooks (`useXxx`) for
   state and side effects.
-- **No inline API calls inside JSX.** Data fetching belongs in a `useEffect` or a
-  custom hook, never in event-handler attributes or render expressions directly.
-- Extract reusable fetching/state logic into custom hooks so components stay focused
-  on rendering.
+- **No inline API calls inside JSX.** Data fetching belongs in a `useEffect` or a custom
+  hook, never in event-handler attributes or render expressions directly.
+- Extract reusable fetching/state logic into custom hooks so components stay focused on
+  rendering.
 
 ### Styling
 
-- Keep styling modular and consistent: use CSS Modules (`Component.module.css`) or
-  standard utility classes.
-- Avoid ad-hoc inline `style={{ ... }}` objects for anything beyond one-off dynamic
-  values.
-
----
-
-## Scope Clarification
-
-- Sections 1–5 retain their existing requirements for the backend.
-- Section 6 contains the frontend guidelines for the React application under `client/`.
-- Backend-specific restrictions on dependencies, source directories, and file
-  extensions do not apply to `client/`. The frontend must still follow Section 6 and
-  all applicable shared TypeScript and code-quality rules.
+- Keep styling modular and consistent: CSS Modules (`Component.module.css`) or standard
+  utility classes.
+- Avoid ad-hoc inline `style={{ ... }}` objects beyond one-off dynamic values.

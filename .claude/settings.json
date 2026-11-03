@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(node_modules/**)",
+      "Read(dist/**)",
+      "Read(dist-ssr/**)",
+      "Read(build/**)",
+      "Read(coverage/**)",
+
+      "Read(**/package-lock.json)",
+      "Read(**/npm-shrinkwrap.json)",
+      "Read(**/yarn.lock)",
+      "Read(**/pnpm-lock.yaml)",
+
+      "Read(logs/**)",
+      "Read(**/*.log)",
+      "Read(**/*.log.[0-9]*)",
+      "Read(**/*.log.gz)",
+
+      "Read(**/*.map)",
+
+      "Read(./.env)",
+      "Read(./.env.*)"
+    ]
+  }
+}

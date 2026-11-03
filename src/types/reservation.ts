@@ -1,5 +1,11 @@
 // Wire-format types generated from docs/openapi.yaml (components/schemas).
 // Date-time fields are ISO 8601 strings as they appear in JSON, not Date objects.
+//
+// SHARED with the client (client/src/api/campushubApi.ts): this file must stay
+// free of imports so the frontend never pulls in backend-only dependencies.
+
+export const RESOURCE_TYPES = ['ROOM', 'EQUIPMENT', 'LAB'] as const;
+export type ResourceType = (typeof RESOURCE_TYPES)[number];
 
 export const RESERVATION_STATUSES = ['PENDING', 'CONFIRMED', 'CANCELLED'] as const;
 export type ReservationStatus = (typeof RESERVATION_STATUSES)[number];
@@ -7,7 +13,7 @@ export type ReservationStatus = (typeof RESERVATION_STATUSES)[number];
 export interface IResource {
   id: string;
   name: string;
-  type: string;
+  type: ResourceType;
   location: string;
   isAvailable: boolean;
 }

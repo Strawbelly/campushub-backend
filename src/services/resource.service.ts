@@ -31,6 +31,43 @@ interface IResourceFilter {
 const isResourceType = (value: string): value is ResourceType =>
   (RESOURCE_TYPES as readonly string[]).includes(value);
 
+export interface ICreateResourceInput {
+  name: string;
+  type: ResourceType;
+  location: string;
+  isAvailable?: boolean;
+}
+
+const isNonEmptyString = (value: unknown): value is string =>
+  typeof value === 'string' && value.trim().length > 0;
+
+export const createResource = async (body: unknown): Promise<IResource> => {
+  if (typeof body !== 'object' || body === null) {
+    throw new ResourceValidationError('Body must be an object.');
+  }
+  const candidate = body as Record<string, unknown>;
+
+  if (!isNonEmptyString(candidate.name) || !isNonEmptyString(candidate.location)) {
+    throw new ResourceValidationError('name and location must be non-empty strings.');
+  }
+  if (typeof candidate.type !== 'string' || !isResourceType(candidate.type)) {
+    throw new ResourceValidationError(`type must be one of ${RESOURCE_TYPES.join(', ')}.`);
+  }
+  if (candidate.isAvailable !== undefined && typeof candidate.isAvailable !== 'boolean') {
+    throw new ResourceValidationError('isAvailable must be a boolean.');
+  }
+
+  const input: ICreateResourceInput = {
+    name: candidate.name,
+    type: candidate.type,
+    location: candidate.location,
+    ...(candidate.isAvailable !== undefined && { isAvailable: candidate.isAvailable }),
+  };
+
+  const doc: IResourceDocument = await Resource.create(input);
+  return toResource(doc);
+};
+
 export const listResources = async (
   query: IListResourcesQuery,
 ): Promise<IResource[]> => {

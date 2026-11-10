@@ -20,10 +20,13 @@ const startServer = async (): Promise<void> => {
   });
 };
 
-startServer().catch((err: unknown): void => {
-  const message: string = err instanceof Error ? err.message : String(err);
-  process.stderr.write(`Failed to start CampusHub API: ${message}\n`);
-  process.exitCode = 1;
-});
+// Start only when run directly (npm run dev), not when imported by tests.
+if (require.main === module) {
+  startServer().catch((err: unknown): void => {
+    const message: string = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`Failed to start CampusHub API: ${message}\n`);
+    process.exitCode = 1;
+  });
+}
 
 export default app;

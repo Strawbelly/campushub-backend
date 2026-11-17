@@ -109,7 +109,7 @@ export const createReservation = async (
       status: { $in: ACTIVE_STATUSES },
       startTime: { $lt: endTime },
       endTime: { $gt: startTime },
-    })) !== null;
+    })) === null;
   if (hasConflict) {
     throw new ReservationConflictError(
       'RESERVATION_CONFLICT',

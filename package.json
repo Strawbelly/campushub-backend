@@ -5,13 +5,15 @@
   "main": "index.js",
   "scripts": {
     "dev": "ts-node src/app.ts",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "lint": "eslint src"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
     "@types/node": "^26.6.2",
@@ -23,7 +25,8 @@
     "supertest": "^7.3.2",
     "ts-jest": "^29.4.15",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.73.0"
   },
   "dependencies": {
     "express": "^5.2.1",

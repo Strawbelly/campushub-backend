@@ -119,6 +119,7 @@ jobs:
           BRANCH_NAME: fix/auto-heal-${{ github.run_id }}
         run: |
           set -e
+          rm -f test-results.log
 
           if [ -z "$(git status --porcelain)" ]; then
             echo "Claude did not generate any changes."
